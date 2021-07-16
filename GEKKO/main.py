@@ -1,0 +1,91 @@
+import math
+
+# Variables
+Fi = 80 
+Wi = 1e6
+Pti = 20
+GTi = 0
+GRi = 0
+c = 3e8
+Pn = 3.16e-13
+fi = 2.4e9
+Ri = 20
+N = 1000
+BLER_eMBB = 0.1
+BLER_URLLC = 1e-3
+K_EMBB = -math.log(5*BLER_eMBB) / 0.45
+K_URLLC = -math.log(5*BLER_URLLC) / 1.25
+Ts = [int(6.5e6), int(13e6)]  # T[0] = URLLC; T[1] = eMBB
+
+N_Areas = 10
+N_UAV = 100
+# If I is even it gets the eMBB slice, if odd gets the URLLC
+d = dict()
+I_number_areas = []
+for i in range(N_Areas):
+    if i % 2 == 0:
+        d[i] = Ts[1]
+    else:
+        d[i] = Ts[0]
+    I_number_areas.append(i)
+
+# Even = eMBB; Odd = URLLC
+areas = [(45, 25, 0), (65, 15, 0), (5, 45, 0), (75, 15, 0), (55, 45, 0), (15, 45, 0), (35, 75, 0), (75, 55, 0), (45, 75, 0), (25, 75, 0)]
+
+UAV_possivel_pos = []
+for i in range(5, 100, 10):
+    for j in range(5, 100, 10):
+        UAV_possivel_pos.append((i, j, 20))
+# print(UAV_possivel_pos)
+
+Ri_UAV = dict()
+J_number_UAV = []
+for i in range(N_UAV):
+    Ri_UAV[i] = Ri
+    J_number_UAV.append(i)
+
+
+# Get distance between the UAV and the center of the area
+def distance(x1, y1, x2, y2, z1=0, z2=20):
+    return math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+
+
+# Get the path loss component to be used to get the received power (PRim)
+def pathLossComponent(dim):
+    return 20 * math.log10(dim) + 20*math.log10(fi) + 20*math.log10(4*math.pi/c)
+
+
+# Get the received power
+def receivedPower(PLim):
+    return ((10 ** ((Pti + GTi + GRi - PLim)/10))/1000)
+
+
+# Get the Bidirectional network capacity provided by an RU of UAVi (Cim)
+def networkCapacity(PRim, K):
+    return Wi * math.log2(1 + (PRim / Pn / K))
+
+
+def minimalUAVNumbers():
+    all_Cim = {}
+    for x1, y1, z1 in areas:
+        for x2, y2, z2 in UAV_possivel_pos:
+            dim = distance(x1, y1, x2, y2, z1, z2)
+            PLim = pathLossComponent(dim)
+            PRim = receivedPower(PLim)
+            #print(PRim)
+            if areas.index((x1, y1, z1)) % 2 == 0:
+                Cim = networkCapacity(PRim, K_EMBB)
+                #print('Par:', Cim)
+            else:
+                Cim = networkCapacity(PRim, K_URLLC)
+                #print('Impar:', Cim)
+
+            # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
+            all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
+    #print(all_Cim)
+
+
+    return status
+
+
+result = minimalUAVNumbers()
