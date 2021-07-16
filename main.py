@@ -2,28 +2,48 @@ from ortools.sat.python import cp_model
 import math
 
 # Variables
+Fi = 80 
 Wi = 1e6
 Pti = 20
 GTi = 0
 GRi = 0
 c = 3e8
-Pn = 3.16e13
+Pn = 3.16e-13
 fi = 2.4e9
 Ri = 20
-BLER_eMBB = 1e-3
-BLER_URLLC = 0.1
+N = 1000
+BLER_eMBB = 0.1
+BLER_URLLC = 1e-3
 K_EMBB = -math.log(5*BLER_eMBB) / 0.45
 K_URLLC = -math.log(5*BLER_URLLC) / 1.25
-Ts = [6.5e6, 13e6]
+Ts = [int(6.5e6), int(13e6)]  # T[0] = URLLC; T[1] = eMBB
+
+N_Areas = 10
+N_UAV = 100
+# If I is even it gets the eMBB slice, if odd gets the URLLC
+d = dict()
+I_number_areas = []
+for i in range(N_Areas):
+    if i % 2 == 0:
+        d[i] = Ts[1]
+    else:
+        d[i] = Ts[0]
+    I_number_areas.append(i)
+
+# Even = eMBB; Odd = URLLC
+areas = [(45, 25, 0), (65, 15, 0), (5, 45, 0), (75, 15, 0), (55, 45, 0), (15, 45, 0), (35, 75, 0), (75, 55, 0), (45, 75, 0), (25, 75, 0)]
 
 UAV_possivel_pos = []
-for i in range(5, 100, 5):
-    for j in range(5, 100, 5):
-        if i or j == 5 or 0:
-            UAV_possivel_pos.append((i, j, 20))
+for i in range(5, 100, 10):
+    for j in range(5, 100, 10):
+        UAV_possivel_pos.append((i, j, 20))
+# print(UAV_possivel_pos)
 
-eMBB_areas = [(45, 25, 0), (5, 45, 0), (55, 45, 0), (35, 75, 0), (45, 75, 0)]
-URLLC_areas = [(65, 15, 0), (75, 15, 0), (15, 45, 0), (75, 55, 0), (25, 75, 0)]
+Ri_UAV = dict()
+J_number_UAV = []
+for i in range(N_UAV):
+    Ri_UAV[i] = Ri
+    J_number_UAV.append(i)
 
 
 # Get distance between the UAV and the center of the area
@@ -33,7 +53,7 @@ def distance(x1, y1, x2, y2, z1=0, z2=20):
 
 # Get the path loss component to be used to get the received power (PRim)
 def pathLossComponent(dim):
-    return 20 * math.log10(dim)-20*math.log10(fi) + 20*math.log10(4*math.pi/c)
+    return 20 * math.log10(dim) + 20*math.log10(fi) + 20*math.log10(4*math.pi/c)
 
 
 # Get the received power
@@ -42,42 +62,78 @@ def receivedPower(PLim):
 
 
 # Get the Bidirectional network capacity provided by an RU of UAVi (Cim)
-def networkCapacity(Prim, K):
-    return Wi * math.log2(1 + (PRim / Pn * K))
+def networkCapacity(PRim, K):
+    return Wi * math.log2(1 + (PRim / Pn / K))
 
 
 def minimalUAVNumbers():
-    model = cp_model.CpModel()
-
-    for x1, y1, z1 in eMBB_areas + URLLC_areas:
+    all_Cim = {}
+    for x1, y1, z1 in areas:
         for x2, y2, z2 in UAV_possivel_pos:
             dim = distance(x1, y1, x2, y2, z1, z2)
             PLim = pathLossComponent(dim)
             PRim = receivedPower(PLim)
+            #print(PRim)
+            if areas.index((x1, y1, z1)) % 2 == 0:
+                Cim = networkCapacity(PRim, K_EMBB)
+                #print('Par:', Cim)
+            else:
+                Cim = networkCapacity(PRim, K_URLLC)
+                #print('Impar:', Cim)
 
+            # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
+            all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
+    #print(all_Cim)
 
-
+    model = cp_model.CpModel()
 
     # --- Constraints! ---
+    #TODO Create the variables to the constraints
+
+    ri_til, Pim_til, rim = {}, {}, {}
+    for j in J_number_UAV:
+        ri_til[j] = model.NewBoolVar('ri_til[%d]' % j)
+        for i in I_number_areas:
+            rim[i, j] = model.NewIntVar(0, Ri, 'rim[%d, %d]' % (i, j))
+            Pim_til[i, j] = model.NewBoolVar('Pim[%d, %d]' % (i, j))
+
+
     # Add first contraint about "Number of RUs provided by UAVi"
-    model.Add(rim <= Ri * ri)
+    for j in J_number_UAV:
+        for i in I_number_areas:
+            model.Add(sum(rim[i2, j] for i2 in I_number_areas) <= Ri * ri_til[j])
 
     # Add second contraint about "one subarea being served by only 1 UAV"
-    model.Add(Pim == 1)
+    for i in I_number_areas:
+        model.Add(sum(Pim_til[i, j] for j in J_number_UAV) == 1)
 
     # Add third contraint about "Bidirectional network capacity provided by an RU of UAVi"
-    model.Add(Cim * rim * Pim >= Ts)
+    for i in I_number_areas:
+        if i % 2 == 0:
+            model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= Ts[1]*18)
+        else:
+            model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= Ts[0]*10)
+
+    for i in I_number_areas:
+        for j in J_number_UAV:
+            model.Add(rim[i, j] == 0).OnlyEnforceIf(Pim_til[i, j].Not())
 
     # Function to optimize
-    #TODO add the damn function
-    model.Minimize()
+    model.Minimize(sum(Fi * ri_til[j] for j in J_number_UAV))
 
-    solver = cp_model.Solver()
+    solver = cp_model.CpSolver()
+    solver.parameters.log_search_progress = True
     status = solver.Solve(model)
+
+    if status == cp_model.OPTIMAL:
+        for i in I_number_areas:
+            for j in J_number_UAV:
+                print("RIs fornecidos pelo UAV %d à subárea %d: %d" % (j, i, solver.Value(rim[i, j])))
+        for j in J_number_UAV:
+            if solver.Value(ri_til[j]):
+                print("ri_til[%d]: %d" % (j, solver.Value(ri_til[j])))
+
     return status
 
 
-#result = minimalUAVNumbers()
-
 result = minimalUAVNumbers()
-print(result)
