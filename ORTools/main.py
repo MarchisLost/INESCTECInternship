@@ -2,7 +2,7 @@ from ortools.sat.python import cp_model
 import math
 
 # Variables
-Fi = 80 
+Fi = 80
 Wi = 1e6
 Pti = 20
 GTi = 0
@@ -73,23 +73,21 @@ def minimalUAVNumbers():
             dim = distance(x1, y1, x2, y2, z1, z2)
             PLim = pathLossComponent(dim)
             PRim = receivedPower(PLim)
-            #print(PRim)
+            # print(PRim)
             if areas.index((x1, y1, z1)) % 2 == 0:
                 Cim = networkCapacity(PRim, K_EMBB)
-                #print('Par:', Cim)
+                # print('Par:', Cim)
             else:
                 Cim = networkCapacity(PRim, K_URLLC)
-                #print('Impar:', Cim)
+                # print('Impar:', Cim)
 
             # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
             all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
-    #print(all_Cim)
+    # print(all_Cim)
 
     model = cp_model.CpModel()
 
     # --- Constraints! ---
-    #TODO Create the variables to the constraints
-
     ri_til, Pim_til, rim = {}, {}, {}
     for j in J_number_UAV:
         ri_til[j] = model.NewBoolVar('ri_til[%d]' % j)
