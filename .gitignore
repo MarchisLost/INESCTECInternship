@@ -137,3 +137,5 @@ dmypy.json
 cython_debug/
 
 gurobiAndre.py
+main2.py
+main3.py
