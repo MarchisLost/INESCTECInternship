@@ -19,6 +19,7 @@ Ts = [int(6.5e6), int(13e6)]  # T[0] = URLLC; T[1] = eMBB
 
 N_Areas = 10
 N_UAV = 100
+n_pessoas_area = [10, 7, 11, 4, 9, 4, 24, 25, 24, 6]
 # If I is even it gets the eMBB slice, if odd gets the URLLC
 d = dict()
 I_number_areas = []
@@ -38,11 +39,17 @@ for i in range(5, 100, 10):
         UAV_possivel_pos.append((i, j, 20))
 # print(UAV_possivel_pos)
 
-Ri_UAV = dict()
+Fi_UAV = []
+Ri_UAV = []
 J_number_UAV = []
 for i in range(N_UAV):
-    Ri_UAV[i] = Ri
     J_number_UAV.append(i)
+    if i % 2 == 0:
+        Fi_UAV.append(80)
+        Ri_UAV.append(20)
+    else:
+        Fi_UAV.append(120)
+        Ri_UAV.append(40)
 
 
 # Get distance between the UAV and the center of the area
@@ -83,8 +90,8 @@ def minimalUAVNumbers():
             # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
             all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
     #print(all_Cim)
-
-
+    
+    status = 1
     return status
 
 
