@@ -49,8 +49,8 @@ for i in range(N_UAV):
         Fi_UAV.append(80)
         Ri_UAV.append(20)
     else:
-        Fi_UAV.append(120)
-        Ri_UAV.append(40)
+        Fi_UAV.append(80)
+        Ri_UAV.append(20)
 
 
 # Get distance between the UAV and the center of the area
