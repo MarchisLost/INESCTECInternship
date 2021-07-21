@@ -1,6 +1,5 @@
 import math
-from numpy import *
-from mip import Model, xsum, maximize, BINARY, INTEGER
+from mip import Model, xsum, BINARY, INTEGER
 # Variables
 Fi = 80
 Wi = 1e6
@@ -127,6 +126,5 @@ for i in I_number_areas:
 for j in J_number_UAV:
     if ri_til[j].x:
         print("ri_til[%d]: %d" % (j, ri_til[j].x))
-        
-print("Custo total: %d" % xsum(Fi_UAV[j] * ri_til[j].x for j in J_number_UAV).x)
 
+print("Custo total: %d" % xsum(Fi_UAV[j] * ri_til[j].x for j in J_number_UAV).x)

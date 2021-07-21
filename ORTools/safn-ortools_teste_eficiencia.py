@@ -2,7 +2,7 @@ from ortools.sat.python import cp_model
 import math
 import random
 # Variables
-Fi = 80 
+Fi = 80
 Wi = 1e6
 Pti = 20
 GTi = 0
@@ -35,16 +35,16 @@ for i in range(N_Areas):
 areas = [(45, 25, 0), (65, 15, 0), (5, 45, 0), (75, 15, 0), (55, 45, 0), (15, 45, 0), (35, 75, 0), (75, 55, 0), (45, 75, 0), (25, 75, 0)]
 
 todas_Areas = []
-for i in range(0, 101, 5):
-    for j in range(0, 101, 5):
+for i in range(5, 100, 10):
+    for j in range(5, 100, 10):
         todas_Areas.append((i, j, 0))
 UAV_possivel_pos = []
 for i in range(5, 100, 10):
     for j in range(5, 100, 10):
-        UAV_possivel_pos.append((i, j, 20))
+        UAV_possivel_pos.append((i, j, 10))
 for i in range(5, 100, 10):
     for j in range(5, 100, 10):
-        UAV_possivel_pos.append((i, j, 10))
+        UAV_possivel_pos.append((i, j, 20))
 # print(UAV_possivel_pos)
 
 Fi_UAV = []
@@ -54,10 +54,10 @@ for i in range(N_UAV):
     J_number_UAV.append(i)
     if i < 100:
         Fi_UAV.append(80)
-        Ri_UAV.append(10)
+        Ri_UAV.append(20)
     else:
         Fi_UAV.append(120)
-        Ri_UAV.append(20)
+        Ri_UAV.append(40)
 
 
 # Get distance between the UAV and the center of the area
@@ -87,20 +87,21 @@ def minimalUAVNumbers():
             dim = distance(x1, y1, x2, y2, z1, z2)
             PLim = pathLossComponent(dim)
             PRim = receivedPower(PLim)
-            #print(PRim)
+            # print(PRim)
             if areas.index((x1, y1, z1)) % 2 == 0:
                 Cim = networkCapacity(PRim, K_EMBB)
-                #print('Par:', Cim)
+                # print('Par:', Cim)
             else:
                 Cim = networkCapacity(PRim, K_URLLC)
-                #print('Impar:', Cim)
+                # print('Impar:', Cim)
 
             # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
             all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
     return all_Cim
+
+
 def modelBuild(all_Cim):
     # --- Constraints! ---
-    #TODO Create the variables to the constraints
     model = cp_model.CpModel()
     ri_til, Pim_til, rim = {}, {}, {}
     for j in J_number_UAV:
@@ -109,7 +110,6 @@ def modelBuild(all_Cim):
             rim[i, j] = model.NewIntVar(0, Ri_UAV[j], 'rim[%d, %d]' % (i, j))
             Pim_til[i, j] = model.NewBoolVar('Pim[%d, %d]' % (i, j))
 
-
     # Add first contraint about "Number of RUs provided by UAVi"
     for j in J_number_UAV:
         model.Add(sum(rim[i, j] for i in I_number_areas) <= Ri_UAV[j] * ri_til[j])
@@ -117,7 +117,7 @@ def modelBuild(all_Cim):
     # Add second contraint about "one subarea being served by only 1 UAV"
     for i in I_number_areas:
         model.Add(sum(Pim_til[i, j] for j in J_number_UAV) == 1)
-    
+
     T_escolhido = []
     while len(T_escolhido) != 2:
         t_aux = Todos_Ts[random.randint(0, 8)]
@@ -128,12 +128,10 @@ def modelBuild(all_Cim):
     # Add third contraint about "Bidirectional network capacity provided by an RU of UAVi"
     for i in I_number_areas:
         if i % 2 == 0:
-            model.Add(sum(int(all_Cim[i, j])  * rim[i ,j]  for j in J_number_UAV) >= T_escolhido[1])# * n_pessoas_area[i])
+            model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= T_escolhido[1])  # * n_pessoas_area[i])
         else:
-            model.Add(sum(int(all_Cim[i, j])  * rim[i ,j]  for j in J_number_UAV) >= T_escolhido[0])# * n_pessoas_area[i])
-    """for j in J_number_UAV:
-        for i in I_number_areas:
-            model.Add(rim[i, j] <= Ri_UAV[j] * Pim_til[i, j])"""
+            model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= T_escolhido[0])  # * n_pessoas_area[i])
+
     for i in I_number_areas:
         for j in J_number_UAV:
             model.Add(rim[i, j] == 0).OnlyEnforceIf(Pim_til[i, j].Not())
@@ -158,7 +156,8 @@ def modelBuild(all_Cim):
     else:
         return -1, -1
 
-tentativas = 50
+
+tentativas = 10
 InfeasableOrNotOptimal = 0
 time = 0
 for i in range(0, tentativas):
@@ -174,14 +173,14 @@ for i in range(0, tentativas):
     areas = []
     while len(areas) != 10:
         a = 0
-        a = todas_Areas[random.randint(0, 100)]
+        a = todas_Areas[random.randint(0, 99)]
         if a not in areas:
             areas.append(a)
         else:
             continue
 
-media = time/tentativas
-print("Conseguiu: %d" % (tentativas-InfeasableOrNotOptimal))
+media = time / tentativas
+print("Conseguiu: %d" % (tentativas - InfeasableOrNotOptimal))
 print("Não conseguiu: %d" % InfeasableOrNotOptimal)
-print("Taxa de sucesso: %f %%" % (((tentativas-InfeasableOrNotOptimal)/tentativas)*100))
+print("Taxa de sucesso: %f %%" % (((tentativas - InfeasableOrNotOptimal)/tentativas) * 100))
 print("Media tempo = %f" % media)
