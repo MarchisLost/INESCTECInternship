@@ -1,6 +1,6 @@
 from ortools.sat.python import cp_model
 import math
-
+import tracemalloc
 # Variables
 Fi = 80
 Wi = 1e6
@@ -90,7 +90,7 @@ for x1, y1, z1 in areas:
         # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
         all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
 # print(all_Cim)
-
+tracemalloc.start()
 model = cp_model.CpModel()
 
 # --- Constraints! ---
@@ -135,3 +135,6 @@ if status == cp_model.OPTIMAL:
         if solver.Value(ri_til[j]):
             print("ri_til[%d]: %d" % (j, solver.Value(ri_til[j])))
     print("Custo total: %d" % sum(solver.Value(Fi_UAV[j]) * solver.Value(ri_til[j]) for j in J_number_UAV))
+current, peak = tracemalloc.get_traced_memory()
+print(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
+tracemalloc.stop()

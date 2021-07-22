@@ -2,6 +2,7 @@ import math
 from numpy import *
 from mip import Model, xsum, maximize, BINARY, INTEGER, OptimizationStatus
 import time
+import tracemalloc
 # Variables
 Fi = 80
 Wi = 1e6
@@ -154,7 +155,13 @@ t = 0
 InfeasableOrNotOptimal = 0
 for i in range(0, tentativas):
     result = minimalUAVNumbers()
+    tracemalloc.start()
     aux, tempo = modelBuild(result)
+    ###### Eficiencia de memoria #####
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
+    tracemalloc.stop()
+    ##################################
     if aux == -1:
         InfeasableOrNotOptimal = InfeasableOrNotOptimal + 1
         print("Não conseguiu tentativa %d/%d." % (i+1, tentativas))

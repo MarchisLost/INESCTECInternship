@@ -1,5 +1,7 @@
 import math
 from mip import Model, xsum, BINARY, INTEGER
+import tracemalloc
+
 # Variables
 Fi = 80
 Wi = 1e6
@@ -90,10 +92,9 @@ for x1, y1, z1 in areas:
         all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
 # print(all_Cim)
 
-
+tracemalloc.start()
 # --- Constraints! ---
 m = Model()
-
 ri_til = [m.add_var(var_type=BINARY) for j in J_number_UAV]
 rim = [[m.add_var(var_type=INTEGER) for j in J_number_UAV] for i in I_number_areas]
 Pim_til = [[m.add_var(var_type=BINARY) for j in J_number_UAV] for i in I_number_areas]
@@ -128,3 +129,6 @@ for j in J_number_UAV:
         print("ri_til[%d]: %d" % (j, ri_til[j].x))
 
 print("Custo total: %d" % xsum(Fi_UAV[j] * ri_til[j].x for j in J_number_UAV).x)
+current, peak = tracemalloc.get_traced_memory()
+print(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
+tracemalloc.stop()

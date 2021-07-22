@@ -1,6 +1,7 @@
 from ortools.sat.python import cp_model
 import math
 import random
+import tracemalloc
 # Variables
 Fi = 80
 Wi = 1e6
@@ -156,13 +157,19 @@ def modelBuild(all_Cim):
     else:
         return -1, -1
 
-
+tracemalloc.start()
 tentativas = 10
 InfeasableOrNotOptimal = 0
 time = 0
 for i in range(0, tentativas):
     result = minimalUAVNumbers()
+    tracemalloc.start()
     aux, custo = modelBuild(result)
+    ###### Eficiencia de memoria #####
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
+    tracemalloc.stop()
+    ##################################
     if aux == -1:
         InfeasableOrNotOptimal = InfeasableOrNotOptimal + 1
         print("Não conseguiu tentativa %d/%d." % (i+1, tentativas))
