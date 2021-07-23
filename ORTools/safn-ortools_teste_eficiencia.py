@@ -2,6 +2,7 @@ from ortools.sat.python import cp_model
 import math
 import random
 import tracemalloc
+import time
 # Variables
 Fi = 80
 Wi = 1e6
@@ -17,23 +18,11 @@ BLER_eMBB = 0.1
 BLER_URLLC = 1e-3
 K_EMBB = -math.log(5*BLER_eMBB) / 0.45
 K_URLLC = -math.log(5*BLER_URLLC) / 1.25
-Ts = [int(19.5e6), int(78e6)]  # T[0] = URLLC; T[1] = eMBB
 Todos_Ts = [6.5e6, 13e6, 19.5e6, 26e6, 39e6, 52e6, 58.5e6, 65e6, 78e6]
 N_Areas = 10
-N_UAV = 200
-n_pessoas_area = [10, 7, 11, 4, 9, 4, 24, 25, 24, 6]
-# If I is even it gets the eMBB slice, if odd gets the URLLC
-d = dict()
-I_number_areas = []
-for i in range(N_Areas):
-    if i % 2 == 0:
-        d[i] = Ts[1]
-    else:
-        d[i] = Ts[0]
-    I_number_areas.append(i)
+N_UAV = 100
+n_pessoas_area = [3, 7, 4, 4, 9, 4, 5, 2, 5, 6]
 
-# Even = eMBB; Odd = URLLC
-areas = [(45, 25, 0), (65, 15, 0), (5, 45, 0), (75, 15, 0), (55, 45, 0), (15, 45, 0), (35, 75, 0), (75, 55, 0), (45, 75, 0), (25, 75, 0)]
 
 todas_Areas = []
 for i in range(5, 100, 10):
@@ -46,7 +35,6 @@ for i in range(5, 100, 10):
 for i in range(5, 100, 10):
     for j in range(5, 100, 10):
         UAV_possivel_pos.append((i, j, 20))
-# print(UAV_possivel_pos)
 
 Fi_UAV = []
 Ri_UAV = []
@@ -80,28 +68,49 @@ def receivedPower(PLim):
 def networkCapacity(PRim, K):
     return Wi * math.log2(1 + (PRim / Pn / K))
 
+def chooseAreasAndTvalue():
+    # Choose N_Areas random areas
+    areas = []
+    while len(areas) != N_Areas:
+        a = todas_Areas[random.randint(0, 99)]
+        if a not in areas:
+            areas.append(a)
+        else:
+            continue
+    # Choose slices for each area
+    T_escolhido = []
+    while len(T_escolhido) != 2:
+        t_aux = Todos_Ts[random.randint(0, 8)]
+        if t_aux not in T_escolhido:
+            T_escolhido.append(int(t_aux))
+        else:
+            continue
+    d = dict()
+    I_number_areas = []
+    for i in range(N_Areas):
+        d[i] = T_escolhido[random.randint(0, 1)]
+        I_number_areas.append(i)
+    return areas, d, I_number_areas
 
-def minimalUAVNumbers():
+def calculateNetworkBidirectionalCapacity(areas):
     all_Cim = {}
     for x1, y1, z1 in areas:
         for x2, y2, z2 in UAV_possivel_pos:
             dim = distance(x1, y1, x2, y2, z1, z2)
             PLim = pathLossComponent(dim)
             PRim = receivedPower(PLim)
-            # print(PRim)
+
             if areas.index((x1, y1, z1)) % 2 == 0:
                 Cim = networkCapacity(PRim, K_EMBB)
-                # print('Par:', Cim)
             else:
                 Cim = networkCapacity(PRim, K_URLLC)
-                # print('Impar:', Cim)
 
             # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
             all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
     return all_Cim
 
 
-def modelBuild(all_Cim):
+def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
     # --- Constraints! ---
     model = cp_model.CpModel()
     ri_til, Pim_til, rim = {}, {}, {}
@@ -119,19 +128,9 @@ def modelBuild(all_Cim):
     for i in I_number_areas:
         model.Add(sum(Pim_til[i, j] for j in J_number_UAV) == 1)
 
-    T_escolhido = []
-    while len(T_escolhido) != 2:
-        t_aux = Todos_Ts[random.randint(0, 8)]
-        if t_aux not in T_escolhido:
-            T_escolhido.append(int(t_aux))
-        else:
-            continue
     # Add third contraint about "Bidirectional network capacity provided by an RU of UAVi"
     for i in I_number_areas:
-        if i % 2 == 0:
-            model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= T_escolhido[1])  # * n_pessoas_area[i])
-        else:
-            model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= T_escolhido[0])  # * n_pessoas_area[i])
+        model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= d[i])  # * n_pessoas_area[i])
 
     for i in I_number_areas:
         for j in J_number_UAV:
@@ -141,9 +140,9 @@ def modelBuild(all_Cim):
 
     solver = cp_model.CpSolver()
     solver.parameters.log_search_progress = False
-    solver.parameters.max_time_in_seconds = 60.0
+    start_time = time.time()
     status = solver.Solve(model)
-
+    x = time.time() - start_time
     if status == cp_model.OPTIMAL:
         for i in I_number_areas:
             for j in J_number_UAV:
@@ -153,41 +152,35 @@ def modelBuild(all_Cim):
             if solver.Value(ri_til[j]):
                 print("ri_til[%d]: %d" % (j, solver.Value(ri_til[j])))
         print("Custo total: %d" % sum(solver.Value(Fi_UAV[j]) * solver.Value(ri_til[j]) for j in J_number_UAV))
-        return solver.WallTime(), sum(solver.Value(Fi_UAV[j]) * solver.Value(ri_til[j]) for j in J_number_UAV)
+        return x, sum(solver.Value(Fi_UAV[j]) * solver.Value(ri_til[j]) for j in J_number_UAV), solver.NumBranches(), solver.ResponseStats()
     else:
         return -1, -1
 
-tracemalloc.start()
 tentativas = 10
 InfeasableOrNotOptimal = 0
-time = 0
+Peak_Memory_usage = []
+Time_to_solve = []
+nBranches = []
+respostas = []
 for i in range(0, tentativas):
-    result = minimalUAVNumbers()
+    areas, d, I_number_areas = chooseAreasAndTvalue()
+    cim = calculateNetworkBidirectionalCapacity(areas)
     tracemalloc.start()
-    aux, custo = modelBuild(result)
+    aux, custo, nB, resposta = modelBuild(cim, areas, d, I_number_areas)
     ###### Eficiencia de memoria #####
     current, peak = tracemalloc.get_traced_memory()
+    nBranches.append(nB)
+    respostas.append(resposta)
+    Peak_Memory_usage.append(peak)
+    Time_to_solve.append(aux)
     print(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
     tracemalloc.stop()
     ##################################
-    if aux == -1:
-        InfeasableOrNotOptimal = InfeasableOrNotOptimal + 1
-        print("Não conseguiu tentativa %d/%d." % (i+1, tentativas))
-    else:
-        print("Conseguiu tentativa %d/%d" % (i+1, tentativas))
-        print("Custo: %d" % custo)
-        time = time + aux
-    areas = []
-    while len(areas) != 10:
-        a = 0
-        a = todas_Areas[random.randint(0, 99)]
-        if a not in areas:
-            areas.append(a)
-        else:
-            continue
 
-media = time / tentativas
-print("Conseguiu: %d" % (tentativas - InfeasableOrNotOptimal))
-print("Não conseguiu: %d" % InfeasableOrNotOptimal)
-print("Taxa de sucesso: %f %%" % (((tentativas - InfeasableOrNotOptimal)/tentativas) * 100))
-print("Media tempo = %f" % media)
+
+for j in range(tentativas):
+    print()
+    print("Tempo da tentativa           %d: %fs" % (j, Time_to_solve[j]))
+    print("Memoria de pico da tentativa %d: %fMB" % (j, Peak_Memory_usage[j] / 10**6))
+    print("Branches  da tentatitva      %d: %d" % (j, nBranches[j]))
+    #print(respostas[j])
