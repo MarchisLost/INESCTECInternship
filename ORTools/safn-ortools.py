@@ -3,9 +3,8 @@ import math
 import random
 import tracemalloc
 import time
-import matplotlib.pyplot as plt
 import numpy as np
-
+import matplotlib.pyplot as plt
 # Variables
 Fi = 80
 Wi = 1e6
@@ -117,10 +116,15 @@ def chooseAreasAndTvalue():
             continue
     d = dict()
     I_number_areas = []
+    tipo_area = []
     for i in range(N_Areas):
         d[i] = T_escolhido[random.randint(0, 1)]
+        if d[i] == max(T_escolhido):
+            tipo_area.append("emdbb")
+        else:
+            tipo_area.append("urcll")
         I_number_areas.append(i)
-    return areas, d, I_number_areas, T_escolhido
+    return areas, d, I_number_areas, T_escolhido, tipo_area
 
 
 def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
@@ -144,7 +148,7 @@ def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
 
     # Add third contraint about "Bidirectional network capacity provided by an RU of UAVi"
     for i in I_number_areas:
-        model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= d[i])  # n_pessoas_area[i])
+        model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= d[i])# n_pessoas_area[i])
 
     for i in I_number_areas:
         for j in J_number_UAV:
@@ -157,26 +161,27 @@ def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
     start_time = time.time()
     status = solver.Solve(model)
     x = time.time() - start_time
-
+    links = []
     if status == cp_model.OPTIMAL:
         for i in I_number_areas:
             for j in J_number_UAV:
                 if solver.Value(rim[i, j]):
                     print("RIs fornecidos pelo UAV %d " % j + str(UAV_possivel_pos[j]) + " à subárea %d " % i + str(areas[i]) + ": %d" % solver.Value(rim[i, j]))
                     pos_uav_used.append(UAV_possivel_pos[j])
+                    links.append([UAV_possivel_pos[j], areas[i], solver.Value(rim[i, j])])
         for j in J_number_UAV:
             if solver.Value(ri_til[j]):
                 print("ri_til[%d]: %d" % (j, solver.Value(ri_til[j])))
         print("Custo total: %d" % sum(solver.Value(Fi_UAV[j]) * solver.Value(ri_til[j]) for j in J_number_UAV))
-        return x, sum(solver.Value(Fi_UAV[j]) * solver.Value(ri_til[j]) for j in J_number_UAV)
+        return x, sum(solver.Value(Fi_UAV[j]) * solver.Value(ri_til[j]) for j in J_number_UAV), links
     else:
         return -1, -1
 
 
-areas, d, I_number_areas, T_escolhido = chooseAreasAndTvalue()
+areas, d, I_number_areas, T_escolhido, tipo_area = chooseAreasAndTvalue()
 cim = calculateNetworkBidirectionalCapacity(areas)
 tracemalloc.start()
-Time_to_solve, custo = modelBuild(cim, areas, d, I_number_areas)
+Time_to_solve, custo, links = modelBuild(cim, areas, d, I_number_areas)
 # MEMORY EFFICIENCY
 current, peak = tracemalloc.get_traced_memory()
 tracemalloc.stop()
@@ -191,21 +196,21 @@ x_area_embb, y_area_embb, x_area_urcll, y_area_urcll = [], [], [], []
 for i in range(len(areas)):
     if d[i] <= T_escolhido[0]:
         if d[i] <= T_escolhido[1]:
-            x_area_embb.append(areas[i][0])
-            y_area_embb.append(areas[i][1])
-            value_embb = d[i]
-        else:
             x_area_urcll.append(areas[i][0])
             y_area_urcll.append(areas[i][1])
             value_urcll = d[i]
+        else:
+            x_area_embb.append(areas[i][0])
+            y_area_embb.append(areas[i][1])
+            value_embb = d[i]
     elif d[i] > T_escolhido[0]:
-        x_area_urcll.append(areas[i][0])
-        y_area_urcll.append(areas[i][1])
-        value_urcll = d[i]
+        x_area_embb.append(areas[i][0])
+        y_area_embb.append(areas[i][1])
+        value_embb = d[i]
 
 ax = fig.add_subplot(1, 2, 1)
-ax.plot(x_area_embb, y_area_embb, marker='s', linestyle='None', label='eMBB = ' + str(value_embb))
-ax.plot(x_area_urcll, y_area_urcll, marker='o', linestyle='None', label='URCLL = ' + str(value_urcll))
+ax.plot(x_area_embb, y_area_embb, marker='s', linestyle='None', label='eMBB = ' + str(value_embb/10**6) + 'MB/s')
+ax.plot(x_area_urcll, y_area_urcll, marker='o', linestyle='None', label='URCLL = ' + str(value_urcll/10**6) + 'MB/s')
 ax.set_title("Slice-aware Coverage")
 ax.set_xlabel("Position X of area (m)")
 ax.set_ylabel("Position Y of area (m)")
@@ -222,8 +227,17 @@ for i in range(len(pos_uav_used)):
     z_uav.append(pos_uav_used[i][2])
 
 ax = fig.add_subplot(1, 2, 2, projection='3d')
-ax.plot(x_uav, y_uav, z_uav, marker='s', linestyle='None', label='Position 3D of UAV')
-ax.plot(x_uav, y_uav, marker='.', linestyle='None', label='Position 2D UAV')
+ax.plot(x_uav, y_uav, z_uav, marker='^', linestyle='None', label='Position 3D of UAV', c = 'm', markersize = 15)
+#ax.plot(x_uav, y_uav, marker='v', linestyle='None', label='Position 2D UAV', c = 'g')
+for i in range(len(x_area_embb)):
+    ax.plot(x_area_embb, y_area_embb, 0, marker = 's', color = 'b', linestyle='None')
+    ax.plot(x_area_urcll, y_area_urcll, 0, marker = '.', color = 'Orange', linestyle='None')
+
+for l in range(len(links)):
+    if tipo_area[l] == "emdbb":
+        ax.plot([links[l][0][0], links[l][1][0]], [links[l][0][1], links[l][1][1]], [links[l][0][2], links[l][1][2]], c = 'black', linestyle='-.', linewidth=links[l][2]/2)
+    else:
+        ax.plot([links[l][0][0], links[l][1][0]], [links[l][0][1], links[l][1][1]], [links[l][0][2], links[l][1][2]], c = 'b', linestyle='-.', linewidth=links[l][2]/2)
 ax.set_title("Position of UAVs")
 ax.set_xlabel("Position X of UAV (m)")
 ax.set_ylabel("Position Y of UAV (m)")
@@ -232,5 +246,6 @@ ax.set_xticks(np.arange(5, 96, 10))
 ax.set_yticks(np.arange(5, 96, 10))
 ax.set_zticks(np.arange(0, 30, 10))
 ax.legend()
+ax.view_init(20, 30)
 plt.grid()
 plt.show()
