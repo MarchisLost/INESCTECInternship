@@ -184,16 +184,19 @@ for i in range(len(areas)):
         if d[i] <= T_escolhido[1]:
             x_area_embb.append(areas[i][0])
             y_area_embb.append(areas[i][1])
+            value_embb = d[i]
         else:
             x_area_urcll.append(areas[i][0])
             y_area_urcll.append(areas[i][1])
+            value_urcll = d[i]
     elif d[i] > T_escolhido[0]:
         x_area_urcll.append(areas[i][0])
         y_area_urcll.append(areas[i][1])
+        value_urcll = d[i]
 
 ax = fig.add_subplot(1, 2, 1)
-ax.plot(x_area_embb, y_area_embb, marker='s', linestyle='None', label='eMBB')
-ax.plot(x_area_urcll, y_area_urcll, marker='o', linestyle='None', label='URCLL')
+ax.plot(x_area_embb, y_area_embb, marker='s', linestyle='None', label='eMBB = ' + str(value_embb))
+ax.plot(x_area_urcll, y_area_urcll, marker='o', linestyle='None', label='URCLL = ' + str(value_urcll))
 ax.set_title("Slice-aware Coverage")
 ax.set_xlabel("Position X of area (m)")
 ax.set_ylabel("Position Y of area (m)")
