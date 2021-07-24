@@ -20,7 +20,7 @@ K_URLLC = -math.log(5*BLER_URLLC) / 1.25
 
 Todos_Ts = [6.5e6, 13e6, 19.5e6, 26e6, 39e6, 52e6, 58.5e6, 65e6, 78e6]
 N_Areas = 10
-N_UAV = 100
+N_UAV = 200
 n_pessoas_area = [3, 7, 4, 4, 9, 4, 5, 2, 5, 6]
 
 
@@ -85,6 +85,8 @@ def calculateNetworkBidirectionalCapacity(areas):
             # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
             all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
     return all_Cim
+
+
 def chooseAreasAndTvalue():
     # Choose N_Areas random areas
     areas = []
@@ -108,6 +110,8 @@ def chooseAreasAndTvalue():
         d[i] = T_escolhido[random.randint(0, 1)]
         I_number_areas.append(i)
     return areas, d, I_number_areas
+
+
 def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
     # --- Constraints! ---
     m = Model()
@@ -115,26 +119,25 @@ def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
     rim = [[m.add_var(var_type=INTEGER) for j in J_number_UAV] for i in I_number_areas]
     Pim_til = [[m.add_var(var_type=BINARY) for j in J_number_UAV] for i in I_number_areas]
 
-    # Add first contraint about "Number of RUs provided by UAVi"
-
-    # Add second contraint about "one subarea being served by only 1 UAV"
+    # Add first contraint about "one subarea being served by only 1 UAV"
     for i in I_number_areas:
         m.add_constr(xsum(Pim_til[i][j] for j in J_number_UAV) == 1)
 
+    # Add second contraint about "Number of RUs provided by UAVi"
     for j in J_number_UAV:
         m.add_constr(xsum(rim[i][j] for i in I_number_areas) <= Ri_UAV[j] * ri_til[j])
         for i in I_number_areas:
             m.add_constr(rim[i][j] <= Ri_UAV[j] * Pim_til[i][j])
     # Add third contraint about "Bidirectional network capacity provided by an RU of UAVi"
     for i in I_number_areas:
-        m.add_constr(xsum(int(all_Cim[i, j]) * rim[i][j] for j in J_number_UAV) >= d[i])# * n_pessoas_area[i])
+        m.add_constr(xsum(int(all_Cim[i, j]) * rim[i][j] for j in J_number_UAV) >= d[i])  # * n_pessoas_area[i])
 
     # Function to optimize
     m.objective = xsum(Fi_UAV[j] * ri_til[j] for j in J_number_UAV)
     start_time = time.time()
     status = m.optimize()
     x = time.time() - start_time
-    
+
     for i in I_number_areas:
         for j in J_number_UAV:
             if rim[i][j].x:
@@ -163,7 +166,7 @@ for i in range(0, tentativas):
     Peak_Memory_usage.append(peak)
     Time_to_solve.append(x)
     tracemalloc.stop()
-    
+
 for j in range(tentativas):
     print()
     print("Tempo da tentativa           %d: %fs" % (j, Time_to_solve[j]))
