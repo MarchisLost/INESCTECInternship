@@ -23,7 +23,7 @@ K_URLLC = -math.log(5*BLER_URLLC) / 1.25
 
 Todos_Ts = [6.5e6, 13e6, 19.5e6, 26e6, 39e6, 52e6, 58.5e6, 65e6, 78e6]
 T_escolhido = []
-N_Areas = 20
+N_Areas = 10
 N_UAV = 200
 n_pessoas_area = [3, 7, 4, 4, 9, 4, 5, 2, 5, 6]
 pos_uav_used = []
@@ -75,7 +75,7 @@ def networkCapacity(PRim, K):
 
 def calculateNetworkBidirectionalCapacity(areas):
     all_Cim = {}
-    i = 0
+    k = 0
     for x1, y1, z1 in areas:
         for x2, y2, z2 in UAV_possivel_pos:
             dim = distance(x1, y1, x2, y2, z1, z2)
@@ -83,19 +83,19 @@ def calculateNetworkBidirectionalCapacity(areas):
             PRim = receivedPower(PLim)
 
             # The smaller value of T goes to the eMBB
-            if d[i] <= T_escolhido[0]:
-                if d[i] < T_escolhido[1]:
+            if d[k] <= T_escolhido[0]:
+                if d[k] <= T_escolhido[1]:
                     Cim = networkCapacity(PRim, K_EMBB)
                 else:
                     Cim = networkCapacity(PRim, K_URLLC)
                     Cim = networkCapacity(PRim, K_URLLC)
-            elif d[i] > T_escolhido[0]:
+            elif d[k] > T_escolhido[0]:
                 Cim = networkCapacity(PRim, K_URLLC)
                 Cim = networkCapacity(PRim, K_URLLC)
 
             # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
             all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
-        i += 1
+        k += 1
     return all_Cim
 
 
@@ -181,7 +181,7 @@ fig = plt.figure(figsize=(12, 7))
 x_area_embb, y_area_embb, x_area_urcll, y_area_urcll = [], [], [], []
 for i in range(len(areas)):
     if d[i] <= T_escolhido[0]:
-        if d[i] < T_escolhido[1]:
+        if d[i] <= T_escolhido[1]:
             x_area_embb.append(areas[i][0])
             y_area_embb.append(areas[i][1])
         else:
