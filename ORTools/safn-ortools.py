@@ -3,6 +3,9 @@ import math
 import random
 import tracemalloc
 import time
+import matplotlib.pyplot as plt
+import numpy as np
+
 # Variables
 Fi = 80
 Wi = 1e6
@@ -17,11 +20,13 @@ BLER_eMBB = 0.1
 BLER_URLLC = 1e-3
 K_EMBB = -math.log(5*BLER_eMBB) / 0.45
 K_URLLC = -math.log(5*BLER_URLLC) / 1.25
+
 Todos_Ts = [6.5e6, 13e6, 19.5e6, 26e6, 39e6, 52e6, 58.5e6, 65e6, 78e6]
+T_escolhido = []
 N_Areas = 10
 N_UAV = 200
 n_pessoas_area = [3, 7, 4, 4, 9, 4, 5, 2, 5, 6]
-
+pos_uav_used = []
 
 todas_Areas = []
 for i in range(5, 100, 10):
@@ -68,6 +73,32 @@ def networkCapacity(PRim, K):
     return Wi * math.log2(1 + (PRim / Pn / K))
 
 
+def calculateNetworkBidirectionalCapacity(areas):
+    all_Cim = {}
+    k = 0
+    for x1, y1, z1 in areas:
+        for x2, y2, z2 in UAV_possivel_pos:
+            dim = distance(x1, y1, x2, y2, z1, z2)
+            PLim = pathLossComponent(dim)
+            PRim = receivedPower(PLim)
+
+            # The smaller value of T goes to the eMBB
+            if d[k] <= T_escolhido[0]:
+                if d[k] <= T_escolhido[1]:
+                    Cim = networkCapacity(PRim, K_EMBB)
+                else:
+                    Cim = networkCapacity(PRim, K_URLLC)
+                    Cim = networkCapacity(PRim, K_URLLC)
+            elif d[k] > T_escolhido[0]:
+                Cim = networkCapacity(PRim, K_URLLC)
+                Cim = networkCapacity(PRim, K_URLLC)
+
+            # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
+            all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
+        k += 1
+    return all_Cim
+
+
 def chooseAreasAndTvalue():
     # Choose N_Areas random areas
     areas = []
@@ -78,7 +109,6 @@ def chooseAreasAndTvalue():
         else:
             continue
     # Choose slices for each area
-    T_escolhido = []
     while len(T_escolhido) != 2:
         t_aux = Todos_Ts[random.randint(0, 8)]
         if t_aux not in T_escolhido:
@@ -90,25 +120,7 @@ def chooseAreasAndTvalue():
     for i in range(N_Areas):
         d[i] = T_escolhido[random.randint(0, 1)]
         I_number_areas.append(i)
-    return areas, d, I_number_areas
-
-
-def calculateNetworkBidirectionalCapacity(areas):
-    all_Cim = {}
-    for x1, y1, z1 in areas:
-        for x2, y2, z2 in UAV_possivel_pos:
-            dim = distance(x1, y1, x2, y2, z1, z2)
-            PLim = pathLossComponent(dim)
-            PRim = receivedPower(PLim)
-
-            if areas.index((x1, y1, z1)) % 2 == 0:
-                Cim = networkCapacity(PRim, K_EMBB)
-            else:
-                Cim = networkCapacity(PRim, K_URLLC)
-
-            # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
-            all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
-    return all_Cim
+    return areas, d, I_number_areas, T_escolhido
 
 
 def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
@@ -132,7 +144,7 @@ def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
 
     # Add third contraint about "Bidirectional network capacity provided by an RU of UAVi"
     for i in I_number_areas:
-        model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= d[i]) # n_pessoas_area[i])
+        model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= d[i])  # n_pessoas_area[i])
 
     for i in I_number_areas:
         for j in J_number_UAV:
@@ -151,6 +163,7 @@ def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
             for j in J_number_UAV:
                 if solver.Value(rim[i, j]):
                     print("RIs fornecidos pelo UAV %d " % j + str(UAV_possivel_pos[j]) + " à subárea %d " % i + str(areas[i]) + ": %d" % solver.Value(rim[i, j]))
+                    pos_uav_used.append(UAV_possivel_pos[j])
         for j in J_number_UAV:
             if solver.Value(ri_til[j]):
                 print("ri_til[%d]: %d" % (j, solver.Value(ri_til[j])))
@@ -160,7 +173,7 @@ def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
         return -1, -1
 
 
-areas, d, I_number_areas = chooseAreasAndTvalue()
+areas, d, I_number_areas, T_escolhido = chooseAreasAndTvalue()
 cim = calculateNetworkBidirectionalCapacity(areas)
 tracemalloc.start()
 Time_to_solve, custo = modelBuild(cim, areas, d, I_number_areas)
@@ -169,3 +182,56 @@ current, peak = tracemalloc.get_traced_memory()
 tracemalloc.stop()
 print("Tempo           : %fs" % Time_to_solve)
 print("Memoria de pico : %fMB" % (peak / 10**6))
+
+# Plot
+fig = plt.figure(figsize=(12, 7))
+
+# Plot the areas
+x_area_embb, y_area_embb, x_area_urcll, y_area_urcll = [], [], [], []
+for i in range(len(areas)):
+    print('ii:', i)
+    if d[i] <= T_escolhido[0]:
+        if d[i] <= T_escolhido[1]:
+            x_area_embb.append(areas[i][0])
+            y_area_embb.append(areas[i][1])
+            print('here embb')
+        else:
+            x_area_urcll.append(areas[i][0])
+            y_area_urcll.append(areas[i][1])
+            print('here urcll1')
+    elif d[i] > T_escolhido[0]:
+        x_area_urcll.append(areas[i][0])
+        y_area_urcll.append(areas[i][1])
+        print('here urcll2')
+
+ax = fig.add_subplot(1, 2, 1)
+ax.plot(x_area_embb, y_area_embb, marker='s', linestyle='None', label='eMBB')
+ax.plot(x_area_urcll, y_area_urcll, marker='o', linestyle='None', label='URCLL')
+ax.set_title("Slice-aware Coverage")
+ax.set_xlabel("Position X of area (m)")
+ax.set_ylabel("Position Y of area (m)")
+ax.set_xticks(np.arange(5, 96, 10))
+ax.set_yticks(np.arange(5, 96, 10))
+ax.legend()
+ax.grid()
+
+# Plot the UAV positions
+x_uav, y_uav, z_uav = [], [], []
+for i in range(len(pos_uav_used)):
+    x_uav.append(pos_uav_used[i][0])
+    y_uav.append(pos_uav_used[i][1])
+    z_uav.append(pos_uav_used[i][2])
+
+ax = fig.add_subplot(1, 2, 2, projection='3d')
+ax.plot(x_uav, y_uav, z_uav, marker='s', linestyle='None', label='Position 3D of UAV')
+ax.plot(x_uav, y_uav, marker='.', linestyle='None', label='Position 2D UAV')
+ax.set_title("Position of UAVs")
+ax.set_xlabel("Position X of UAV (m)")
+ax.set_ylabel("Position Y of UAV (m)")
+ax.set_zlabel("Position Z of UAV (m)")
+ax.set_xticks(np.arange(5, 96, 10))
+ax.set_yticks(np.arange(5, 96, 10))
+ax.set_zticks(np.arange(0, 30, 10))
+ax.legend()
+plt.grid()
+plt.show()
