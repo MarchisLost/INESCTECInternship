@@ -3,6 +3,7 @@ from mip import Model, xsum, BINARY, INTEGER, OptimizationStatus
 import tracemalloc
 import random
 import time
+
 # Variables
 Fi = 80
 Wi = 1e6
@@ -19,10 +20,10 @@ K_EMBB = -math.log(5*BLER_eMBB) / 0.45
 K_URLLC = -math.log(5*BLER_URLLC) / 1.25
 
 Todos_Ts = [6.5e6, 13e6, 19.5e6, 26e6, 39e6, 52e6, 58.5e6, 65e6, 78e6]
+T_escolhido = []
 N_Areas = 10
-N_UAV = 200
+N_UAV = 100
 n_pessoas_area = [3, 7, 4, 4, 9, 4, 5, 2, 5, 6]
-
 
 todas_Areas = []
 for i in range(5, 100, 10):
@@ -71,19 +72,27 @@ def networkCapacity(PRim, K):
 
 def calculateNetworkBidirectionalCapacity(areas):
     all_Cim = {}
+    k = 0
     for x1, y1, z1 in areas:
         for x2, y2, z2 in UAV_possivel_pos:
             dim = distance(x1, y1, x2, y2, z1, z2)
             PLim = pathLossComponent(dim)
             PRim = receivedPower(PLim)
 
-            if areas.index((x1, y1, z1)) % 2 == 0:
-                Cim = networkCapacity(PRim, K_EMBB)
-            else:
+            # The smaller value of T goes to the eMBB
+            if d[k] <= T_escolhido[0]:
+                if d[k] <= T_escolhido[1]:
+                    Cim = networkCapacity(PRim, K_EMBB)
+                else:
+                    Cim = networkCapacity(PRim, K_URLLC)
+                    Cim = networkCapacity(PRim, K_URLLC)
+            elif d[k] > T_escolhido[0]:
+                Cim = networkCapacity(PRim, K_URLLC)
                 Cim = networkCapacity(PRim, K_URLLC)
 
             # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
             all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
+        k += 1
     return all_Cim
 
 
@@ -97,7 +106,6 @@ def chooseAreasAndTvalue():
         else:
             continue
     # Choose slices for each area
-    T_escolhido = []
     while len(T_escolhido) != 2:
         t_aux = Todos_Ts[random.randint(0, 8)]
         if t_aux not in T_escolhido:
@@ -109,7 +117,7 @@ def chooseAreasAndTvalue():
     for i in range(N_Areas):
         d[i] = T_escolhido[random.randint(0, 1)]
         I_number_areas.append(i)
-    return areas, d, I_number_areas
+    return areas, d, I_number_areas, T_escolhido
 
 
 def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
@@ -156,7 +164,7 @@ tentativas = 10
 Peak_Memory_usage = []
 Time_to_solve = []
 for i in range(0, tentativas):
-    areas, d, I_number_areas = chooseAreasAndTvalue()
+    areas, d, I_number_areas, T_escolhido = chooseAreasAndTvalue()
     cim = calculateNetworkBidirectionalCapacity(areas)
     tracemalloc.start()
     custo, x = modelBuild(cim, areas, d, I_number_areas)

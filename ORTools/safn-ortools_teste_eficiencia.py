@@ -3,6 +3,7 @@ import math
 import random
 import tracemalloc
 import time
+
 # Variables
 Fi = 80
 Wi = 1e6
@@ -18,11 +19,12 @@ BLER_eMBB = 0.1
 BLER_URLLC = 1e-3
 K_EMBB = -math.log(5*BLER_eMBB) / 0.45
 K_URLLC = -math.log(5*BLER_URLLC) / 1.25
+
 Todos_Ts = [6.5e6, 13e6, 19.5e6, 26e6, 39e6, 52e6, 58.5e6, 65e6, 78e6]
+T_escolhido = []
 N_Areas = 10
 N_UAV = 100
 n_pessoas_area = [3, 7, 4, 4, 9, 4, 5, 2, 5, 6]
-
 
 todas_Areas = []
 for i in range(5, 100, 10):
@@ -69,6 +71,32 @@ def networkCapacity(PRim, K):
     return Wi * math.log2(1 + (PRim / Pn / K))
 
 
+def calculateNetworkBidirectionalCapacity(areas):
+    all_Cim = {}
+    k = 0
+    for x1, y1, z1 in areas:
+        for x2, y2, z2 in UAV_possivel_pos:
+            dim = distance(x1, y1, x2, y2, z1, z2)
+            PLim = pathLossComponent(dim)
+            PRim = receivedPower(PLim)
+
+            # The smaller value of T goes to the eMBB
+            if d[k] <= T_escolhido[0]:
+                if d[k] <= T_escolhido[1]:
+                    Cim = networkCapacity(PRim, K_EMBB)
+                else:
+                    Cim = networkCapacity(PRim, K_URLLC)
+                    Cim = networkCapacity(PRim, K_URLLC)
+            elif d[k] > T_escolhido[0]:
+                Cim = networkCapacity(PRim, K_URLLC)
+                Cim = networkCapacity(PRim, K_URLLC)
+
+            # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
+            all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
+        k += 1
+    return all_Cim
+
+
 def chooseAreasAndTvalue():
     # Choose N_Areas random areas
     areas = []
@@ -91,25 +119,7 @@ def chooseAreasAndTvalue():
     for i in range(N_Areas):
         d[i] = T_escolhido[random.randint(0, 1)]
         I_number_areas.append(i)
-    return areas, d, I_number_areas
-
-
-def calculateNetworkBidirectionalCapacity(areas):
-    all_Cim = {}
-    for x1, y1, z1 in areas:
-        for x2, y2, z2 in UAV_possivel_pos:
-            dim = distance(x1, y1, x2, y2, z1, z2)
-            PLim = pathLossComponent(dim)
-            PRim = receivedPower(PLim)
-
-            if areas.index((x1, y1, z1)) % 2 == 0:
-                Cim = networkCapacity(PRim, K_EMBB)
-            else:
-                Cim = networkCapacity(PRim, K_URLLC)
-
-            # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
-            all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
-    return all_Cim
+    return areas, d, I_number_areas, T_escolhido
 
 
 def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
@@ -158,6 +168,7 @@ def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
     else:
         return -1, -1
 
+
 tentativas = 10
 InfeasableOrNotOptimal = 0
 Peak_Memory_usage = []
@@ -165,11 +176,11 @@ Time_to_solve = []
 nBranches = []
 respostas = []
 for i in range(0, tentativas):
-    areas, d, I_number_areas = chooseAreasAndTvalue()
+    areas, d, I_number_areas, T_escolhido = chooseAreasAndTvalue()
     cim = calculateNetworkBidirectionalCapacity(areas)
     tracemalloc.start()
     aux, custo, nB, resposta = modelBuild(cim, areas, d, I_number_areas)
-    ###### Eficiencia de memoria #####
+    # ------ Eficiencia de memoria ------ #
     current, peak = tracemalloc.get_traced_memory()
     nBranches.append(nB)
     respostas.append(resposta)
@@ -185,4 +196,4 @@ for j in range(tentativas):
     print("Tempo da tentativa           %d: %fs" % (j, Time_to_solve[j]))
     print("Memoria de pico da tentativa %d: %fMB" % (j, Peak_Memory_usage[j] / 10**6))
     print("Branches  da tentatitva      %d: %d" % (j, nBranches[j]))
-    #print(respostas[j])
+    # print(respostas[j])
