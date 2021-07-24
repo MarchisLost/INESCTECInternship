@@ -67,6 +67,7 @@ def receivedPower(PLim):
 def networkCapacity(PRim, K):
     return Wi * math.log2(1 + (PRim / Pn / K))
 
+
 def chooseAreasAndTvalue():
     # Choose N_Areas random areas
     areas = []
@@ -90,6 +91,7 @@ def chooseAreasAndTvalue():
         d[i] = T_escolhido[random.randint(0, 1)]
         I_number_areas.append(i)
     return areas, d, I_number_areas
+
 
 def calculateNetworkBidirectionalCapacity(areas):
     all_Cim = {}
