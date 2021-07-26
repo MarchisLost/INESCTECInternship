@@ -23,8 +23,8 @@ K_URLLC = -math.log(5*BLER_URLLC) / 1.25
 
 Todos_Ts = [6.5e6, 13e6, 19.5e6, 26e6, 39e6, 52e6, 58.5e6, 65e6, 78e6]
 T_escolhido = []
-N_Areas = 20
-N_UAV = 200
+N_Areas = 10
+N_UAV = 100
 n_pessoas_area = [3, 7, 4, 4, 9, 4, 5, 2, 5, 6]
 pos_uav_used = []
 
