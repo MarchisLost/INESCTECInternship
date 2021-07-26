@@ -23,7 +23,7 @@ K_URLLC = -math.log(5*BLER_URLLC) / 1.25
 Todos_Ts = [6.5e6, 13e6, 19.5e6, 26e6, 39e6, 52e6, 58.5e6, 65e6, 78e6]
 T_escolhido = []
 N_Areas = 10
-N_UAV = 200
+N_UAV = 100
 n_pessoas_area = [3, 7, 4, 4, 9, 4, 5, 2, 5, 6]
 pos_uav_used = []
 
@@ -84,13 +84,11 @@ def calculateNetworkBidirectionalCapacity(areas):
             # The smaller value of T goes to the eMBB
             if d[k] <= T_escolhido[0]:
                 if d[k] <= T_escolhido[1]:
-                    Cim = networkCapacity(PRim, K_EMBB)
+                    Cim = networkCapacity(PRim, K_URLLC)
                 else:
-                    Cim = networkCapacity(PRim, K_URLLC)
-                    Cim = networkCapacity(PRim, K_URLLC)
+                    Cim = networkCapacity(PRim, K_EMBB)
             elif d[k] > T_escolhido[0]:
-                Cim = networkCapacity(PRim, K_URLLC)
-                Cim = networkCapacity(PRim, K_URLLC)
+                Cim = networkCapacity(PRim, K_EMBB)
 
             # Dict with the keys as tuples with the index of the area and the index of the UAV and the value as the Cim (network capacity)
             all_Cim[areas.index((x1, y1, z1)), UAV_possivel_pos.index((x2, y2, z2))] = Cim
