@@ -146,7 +146,7 @@ def modelBuild(all_Cim, T_escolhido, d, I_number_areas):
 
     # Add third contraint about "Bidirectional network capacity provided by an RU of UAVi"
     for i in I_number_areas:
-        model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= d[i])# n_pessoas_area[i])
+        model.Add(sum(int(all_Cim[i, j]) * rim[i, j] for j in J_number_UAV) >= d[i])  # n_pessoas_area[i])
 
     for i in I_number_areas:
         for j in J_number_UAV:
@@ -225,17 +225,17 @@ for i in range(len(pos_uav_used)):
     z_uav.append(pos_uav_used[i][2])
 
 ax = fig.add_subplot(1, 2, 2, projection='3d')
-ax.plot(x_uav, y_uav, z_uav, marker='^', linestyle='None', label='Position 3D of UAV', c = 'm', markersize = 15)
-#ax.plot(x_uav, y_uav, marker='v', linestyle='None', label='Position 2D UAV', c = 'g')
+ax.plot(x_uav, y_uav, z_uav, marker='^', linestyle='None', label='Position 3D of UAV', c='m', markersize=15)
+# ax.plot(x_uav, y_uav, marker='v', linestyle='None', label='Position 2D UAV', c = 'g')
 for i in range(len(x_area_embb)):
-    ax.plot(x_area_embb, y_area_embb, 0, marker = 's', color = 'b', linestyle='None')
-    ax.plot(x_area_urcll, y_area_urcll, 0, marker = '.', color = 'Orange', linestyle='None')
+    ax.plot(x_area_embb, y_area_embb, 0, marker='s', color='b', linestyle='None')
+    ax.plot(x_area_urcll, y_area_urcll, 0, marker='.', color='Orange', linestyle='None')
 
 for l in range(len(links)):
     if tipo_area[l] == "emdbb":
-        ax.plot([links[l][0][0], links[l][1][0]], [links[l][0][1], links[l][1][1]], [links[l][0][2], links[l][1][2]], c = 'black', linestyle='-.', linewidth=links[l][2]/2)
+        ax.plot([links[l][0][0], links[l][1][0]], [links[l][0][1], links[l][1][1]], [links[l][0][2], links[l][1][2]], c='black', linestyle='-.', linewidth=links[l][2]/2)
     else:
-        ax.plot([links[l][0][0], links[l][1][0]], [links[l][0][1], links[l][1][1]], [links[l][0][2], links[l][1][2]], c = 'b', linestyle='-.', linewidth=links[l][2]/2)
+        ax.plot([links[l][0][0], links[l][1][0]], [links[l][0][1], links[l][1][1]], [links[l][0][2], links[l][1][2]], c='b', linestyle='-.', linewidth=links[l][2]/2)
 ax.set_title("Position of UAVs")
 ax.set_xlabel("Position X of UAV (m)")
 ax.set_ylabel("Position Y of UAV (m)")
